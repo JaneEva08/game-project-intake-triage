@@ -374,6 +374,50 @@ def admin_ticket(ticket_id: int, username: str = Depends(require_admin)) -> str:
 <script>document.querySelector('#edit').addEventListener('submit',async e=>{{e.preventDefault();const r=await fetch('/admin/tickets/{ticket_id}/update',{{method:'POST',headers:{{'Content-Type':'application/json'}},body:JSON.stringify(Object.fromEntries(new FormData(e.target)))}});document.querySelector('#result').textContent=r.ok?'Данные сохранены. Заявка передана на проверку.':await r.text();}});</script></html>"""
 
 
+@app.get("/admin/api/tickets/{ticket_id}")
+def admin_ticket_json(ticket_id: int, username: str = Depends(require_admin)) -> dict[str, object]:
+    """Read a saved ticket as JSON for staff review and demo evidence."""
+    with db_session() as db:
+        ticket = db.execute("SELECT * FROM tickets WHERE id = ?", (ticket_id,)).fetchone()
+        if ticket is None:
+            raise HTTPException(status_code=404, detail="Ticket not found")
+        events = db.execute(
+            "SELECT created_at, event_type, details FROM events WHERE ticket_id = ? ORDER BY id",
+            (ticket_id,),
+        ).fetchall()
+
+    return {
+        "ticket_id": ticket["id"],
+        "request": {
+            "text": ticket["text"],
+            "channel": ticket["channel"],
+            "client_id": ticket["client_id"],
+        },
+        "result": {
+            "category": ticket["category"],
+            "business_type": ticket["business_type"],
+            "text_ru": ticket["text_ru"],
+            "draft_reply": ticket["draft_reply"],
+            "confidence": ticket["confidence"],
+            "escalate": bool(ticket["escalate"]),
+            "missing_fields": json.loads(ticket["missing_fields"] or "[]"),
+        },
+        "record": {
+            "status": ticket["status"],
+            "error": ticket["error"],
+            "created_at": ticket["created_at"],
+            "events": [
+                {
+                    "created_at": event["created_at"],
+                    "event_type": event["event_type"],
+                    "details": event["details"],
+                }
+                for event in events
+            ],
+        },
+    }
+
+
 @app.post("/admin/tickets/{ticket_id}/update")
 def admin_update(ticket_id: int, payload: FormSubmission, username: str = Depends(require_admin)) -> dict[str, str | int]:
     timestamp = utc_now()
