@@ -428,7 +428,7 @@ def triage(payload: TriageRequest) -> TriageResponse:
             "materials_url": None,
         }
 
-    required_fields = ["studio_name", "game_title", "contact_email", "game_page_url", "materials_url"]
+    required_fields = ["studio_name", "game_title", "contact_email"]
     missing = [name for name in required_fields if not (extracted.get(name) or "").strip()]
     if analysis is None:
         category, business_type, confidence, escalate = "other", "other", "low", True

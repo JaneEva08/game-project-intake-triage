@@ -10,11 +10,11 @@ from pydantic import BaseModel, ConfigDict, Field
 class ExtractedGameData(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
-    studio_name: str | None
-    game_title: str | None
-    contact_email: str | None
-    game_page_url: str | None
-    materials_url: str | None
+    studio_name: str | None = None
+    game_title: str | None = None
+    contact_email: str | None = None
+    game_page_url: str | None = None
+    materials_url: str | None = None
 
 
 class TriageAnalysis(BaseModel):
@@ -87,9 +87,13 @@ def analyze_message(text: str) -> TriageAnalysis:
         raise ValueError("draft_reply_must_have_1_to_6_sentences")
     if not any("\u0400" <= char <= "\u04ff" for char in analysis.translation_ru):
         raise ValueError("translation_ru_is_not_russian")
+    names_missing_from_translation: list[str] = []
     for name in (analysis.extracted_data.studio_name, analysis.extracted_data.game_title):
         if name and name not in text:
             raise ValueError("extracted_name_not_present_in_original")
         if name and name not in analysis.translation_ru:
-            raise ValueError("original_name_missing_from_russian_translation")
+            names_missing_from_translation.append(name)
+    if names_missing_from_translation:
+        preserved = "; ".join(names_missing_from_translation)
+        analysis.translation_ru = f"{analysis.translation_ru.rstrip()}\n\nОригинальные названия: {preserved}."
     return analysis
