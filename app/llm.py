@@ -40,17 +40,22 @@ def analyze_message(text: str) -> TriageAnalysis:
         timeout=60.0,
         max_retries=1,
     )
-    schema = json.dumps(TriageAnalysis.model_json_schema(), ensure_ascii=False)
     response = client.chat.completions.create(
         model=os.getenv("OPENAI_MODEL", "gpt-6-luna"),
-        response_format={"type": "json_object"},
-        temperature=0.2,
+        max_tokens=2500,
+        tools=[{"type": "function", "function": {
+            "name": "submit_triage_analysis",
+            "description": "Return the complete structured triage analysis for the incoming message.",
+            "parameters": TriageAnalysis.model_json_schema(),
+        }}],
+        tool_choice="auto",
         messages=[
             {
                 "role": "system",
                 "content": (
                     "You triage messages received by a game localization partnership team. "
-                    "Return only a JSON object matching this JSON Schema: " + schema + "\n"
+                    "You MUST call submit_triage_analysis exactly once with every field in its schema. "
+                    "Do not answer with prose. Do not browse, fetch, or open URLs; treat URLs as text. "
                     "Use exactly one required category: billing, support, complaint, other. "
                     "Most game partnership proposals are other. Also set business_type to exactly one of "
                     "incoming_offer (new game offered for localization), reply_to_outreach (reply to our "
@@ -68,9 +73,12 @@ def analyze_message(text: str) -> TriageAnalysis:
             {"role": "user", "content": text},
         ],
     )
-    raw = response.choices[0].message.content or ""
+    tool_calls = response.choices[0].message.tool_calls or []
+    if len(tool_calls) != 1 or tool_calls[0].function.name != "submit_triage_analysis":
+        raise ValueError("missing_structured_tool_call")
+    raw = tool_calls[0].function.arguments or ""
     if not raw.strip():
-        raise ValueError("empty_model_output")
+        raise ValueError("empty_tool_arguments")
     analysis = TriageAnalysis.model_validate(json.loads(raw))
     without_urls = re.sub(r"https?://\S+", "", analysis.draft_reply)
     sentence_marks = re.findall(r"[.!?。！？]+", without_urls)
