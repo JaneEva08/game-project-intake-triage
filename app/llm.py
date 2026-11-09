@@ -66,8 +66,10 @@ def analyze_message(text: str) -> TriageAnalysis:
                     "facts, metrics, or deal terms. If information is insufficient, confidence must be "
                     "low and escalate must be true. Write a concise draft reply in the sender's language, "
                     "1 to 6 sentences. Do not claim a message or email was sent. Translate the full "
-                    "incoming message to natural Russian in translation_ru, but preserve company names, "
-                    "game titles, brand names, email addresses, and URLs exactly as in the source."
+                    "incoming message, including form labels and every sentence, into natural Russian in "
+                    "translation_ru. Keep only proper nouns, company names, game titles, brand names, "
+                    "email addresses, and URLs exactly as in the source. Do not leave any ordinary English "
+                    "or Chinese sentence untranslated."
                 ),
             },
             {"role": "user", "content": text},
